@@ -2614,7 +2614,7 @@ sub generate_schema
                 or not defined $objects->{SCHEMAS}->{$schema})
         {
             # Not compatible before 9.3. This is the logical target for this tool anyway
-            print BEFORE "CREATE SCHEMA IF NOT EXISTS ",format_identifier($schema),";\n";
+            print BEFORE "--CREATE SCHEMA IF NOT EXISTS ",format_identifier($schema),";\n";
         }
     }
 
