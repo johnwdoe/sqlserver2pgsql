@@ -950,9 +950,9 @@ sub generate_kettle
                 my $wherefilter;
                 $newtemplate = $template_lob;
                 $wherefilter =
-                      'WHERE '
+                      'WHERE ['
                    . $refschema->{TABLES}->{$table}->{PK}->{COLS}->[0]
-                   . '% ${Internal.Step.Unique.Count} = ${Internal.Step.Unique.Number}';
+                   . '] % ${Internal.Step.Unique.Count} = ${Internal.Step.Unique.Number}';
                 $newtemplate =~
                     s/__sqlserver_where_filter__/$wherefilter/;
             }
