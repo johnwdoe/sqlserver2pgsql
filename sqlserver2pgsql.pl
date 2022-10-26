@@ -1202,6 +1202,11 @@ sub generate_kettle
         foreach my $table (sort { lc($a) cmp lc($b) }
                            keys %{$refschema->{TABLES}})
         {
+            unless (grep(/^$table$/, @idf_array) and $includedatafilename) {
+                print STDOUT "Skip creating kettle-jobs for $table\n";
+                next;
+            }
+            
             my $tmp_entry = $job_entry;
 
             # We build the entries with regexp substitutions. The tablename contains the schema
