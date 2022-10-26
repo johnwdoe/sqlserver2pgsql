@@ -31,6 +31,7 @@ my $objects;
 our ($sd, $sh, $si, $sp, $su, $sw, $pd, $ph, $pp, $pu, $pw);    # Connection args
 our $conf_file;
 our $filename;          # Filename passed as arg
+our $includedatafilename; #IDT Filename passed as arg
 our $case_insensitive;  # Passed as arg: was SQL Server installation case insensitive ? PostgreSQL can't ignore accents anyway
                         # If yes, we will generate citext with CHECK constraints, that's the best we can do
 our $norelabel_dbo;     # Passed as arg: should we convert DBO to public ?
@@ -72,6 +73,8 @@ my ($job_header, $job_middle, $job_footer)
 my ($job_entry, $job_hop)
     ;    # These are used to create the dynamic parts of the job (XML file)
 my @view_list; # array to keep view ordering from sql server's dump (a view may depend on another view)
+
+#my @idf_array; # array of tablenames which data have to be migrated
 
 # Opens the configuration file
 # Sets $sd $sh $si $sp $su $sw $pd $ph $pp $pu $pw when they are not set in the command line already
@@ -926,6 +929,10 @@ sub generate_kettle
     {
         mkdir($dir) or die "Cannot create $dir";
     }
+    
+    open my $handle, '<', $includedatafilename;
+    chomp(my @idf_array = <$handle>);
+    close $handle;
 
     # For each table in each schema in $objects, we generate a kettle file in the directory
     # We also create an incremental transformation
@@ -937,6 +944,13 @@ sub generate_kettle
 
         foreach my $table (sort keys %{$refschema->{TABLES}})
         {
+            # TODO check table and skip if needed :-)
+            
+            unless (grep(/^$table$/, @idf_array) and $includedatafilename) {
+                print STDOUT "Skip creating kettle-jobs for $table\n";
+                next;
+            }
+            
             my $origschema=$refschema->{TABLES}->{$table}->{origschema};
             # First, does this table have LOBs ? The template depends on this and is this
             # table having an int PK ?
@@ -2554,6 +2568,11 @@ sub parse_dump
     close $file;
 }
 
+sub parse_idf
+{
+
+}
+
 # Creates the SQL scripts from $object
 # We generate alphabetically, to make things less random (this data comes from a hash)
 sub generate_schema
@@ -3269,6 +3288,7 @@ my $options = GetOptions(
 	 "pu=s"   => \$pu,
 	 "pw=s"   => \$pw,
 	 "f=s"    => \$filename,
+	 "idt=s"  => \$includedatafilename,
 	 "i"      => \$case_insensitive,
 	 "nr"     => \$norelabel_dbo,
 	 "num"    => \$convert_numeric_to_int,
