@@ -930,9 +930,12 @@ sub generate_kettle
         mkdir($dir) or die "Cannot create $dir";
     }
     
-    open my $handle, '<', $includedatafilename;
-    chomp(my @idf_array = <$handle>);
-    close $handle;
+#    if ($includedatafilename)
+#    {
+        open my $handle, '<', $includedatafilename;
+        chomp(my @idf_array = <$handle>);
+        close $handle;
+#    }
 
     # For each table in each schema in $objects, we generate a kettle file in the directory
     # We also create an incremental transformation
@@ -944,7 +947,7 @@ sub generate_kettle
 
         foreach my $table (sort keys %{$refschema->{TABLES}})
         {
-            # TODO check table and skip if needed :-)
+            # check table and skip if needed :-)
             
             unless (grep(/^$table$/, @idf_array) and $includedatafilename) {
                 print STDOUT "Skip creating kettle-jobs for $table\n";
