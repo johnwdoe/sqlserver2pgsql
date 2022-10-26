@@ -949,7 +949,7 @@ sub generate_kettle
         {
             # check table and skip if needed :-)
             
-            unless (grep(/^$table$/, @idf_array) and $includedatafilename) {
+            unless (grep(/^$table$/i, @idf_array) and $includedatafilename) {
                 print STDOUT "Skip creating kettle-jobs for $table\n";
                 next;
             }
@@ -1205,7 +1205,7 @@ sub generate_kettle
         foreach my $table (sort { lc($a) cmp lc($b) }
                            keys %{$refschema->{TABLES}})
         {
-            unless (grep(/^$table$/, @idf_array) and $includedatafilename) {
+            unless (grep(/^$table$/i, @idf_array) and $includedatafilename) {
                 print STDOUT "Skip creating kettle-jobs for $table\n";
                 next;
             }
