@@ -2568,17 +2568,18 @@ sub parse_dump
         {
             next;
         }
+        
+        # skip LOCK_ESCALATION
+        elsif ($line =~ /^ALTER TABLE.*SET.*LOCK_ESCALATION/)
+        {
+            next;
+        }
         else
         {
             die "Line <$line> ($.) not understood. This is a bug";
         }
     }
     close $file;
-}
-
-sub parse_idf
-{
-
 }
 
 # Creates the SQL scripts from $object
