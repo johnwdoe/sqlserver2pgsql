@@ -1535,7 +1535,6 @@ sub parse_dump
     # Tagged because sql statements are often multi-line, so there are inner loops in some conditions
     MAIN: while (my $line = read_and_clean($file))
     {
-
         # Create table, obviously. There will be other lines below for the rest of the table definition
         if ($line =~ /^CREATE TABLE \[(.*)\]\.\[(.*)\]\s*\(/)
         {
@@ -1738,7 +1737,7 @@ sub parse_dump
 		 next MAIN;
 	      }
 	   }
-	}
+        }
         elsif ($line =~ /^CREATE SCHEMA \[(.*)\]/)
         {
             $objects->{SCHEMAS}->{relabel_schemas($1)} = undef
@@ -1784,7 +1783,6 @@ sub parse_dump
                 next MAIN if ($contline eq '');
             }
         }
-
         # Now we parse the create view. It is multi-line, so the code looks like like create table: we parse everything until a line
         # containing only a single quote (end of the dbo.sp_executesql)
         # The problem is that SQL Server seems to be spitting the original query used to create the view, not a normalized version
@@ -1896,9 +1894,7 @@ sub parse_dump
             }
         }
         # These are domains with PostgreSQL
-        elsif ($line =~
-            /^CREATE TYPE \[(.*?)\]\.\[(.*?)\] FROM \[(.*?)](?:\((\d+(?:,\s*\d+)?)?\))?/
-            )
+        elsif ($line =~/^CREATE TYPE \[(.*?)\]\.\[(.*?)\] FROM \[(.*?)](?:\((\d+(?:,\s*\d+)?)?\))?/)
         {
             # Dependency between types is not done for now. If the problem arises, it may be added
             my ($schema, $type, $origtype, $quals) = ($1, $2, $3, $4);
@@ -1971,10 +1967,7 @@ sub parse_dump
                 }
             }
         }
-
-        elsif ($line =~
-            /^\s*CREATE\s*(UNIQUE )?\s*(NONCLUSTERED|CLUSTERED)?\s*INDEX \[(.*?)\] ON \[(.*?)\]\.\[(.*?)\](\(\[.*?\]\))?/
-            )
+        elsif ($line =~/^\s*CREATE\s*(UNIQUE )?\s*(NONCLUSTERED|CLUSTERED)?\s*INDEX \[(.*?)\] ON \[(.*?)\]\.\[(.*?)\](\(\[.*?\]\))?/)
         {
             # Index creation. Index are namespaced per table in SQL Server, not in PostgreSQL
             # In PostgreSQL they are in the same namespace as the tables, and in the same
@@ -2060,9 +2053,8 @@ sub parse_dump
                       ->{INDEXES}->{$idxname}->{WHERE}="(".$filter.")";
                 }
              }
-         }
-
-				# we do not take migrate spatial indexes
+        }
+        # we do not take migrate spatial indexes
         elsif ($line =~ /^CREATE SPATIAL INDEX/)
         {
             my $def=$line;
@@ -2072,7 +2064,6 @@ sub parse_dump
             }
             print STDERR "This spatial index won't be migrated:\n$def\n";
         }
-
         elsif ($line =~ /^ALTER INDEX \[(.*)\] ON \[(.*)\]\.\[(.*)\] DISABLE$/)
         {
             my $idxname     = $1;
@@ -2081,13 +2072,10 @@ sub parse_dump
 
             $objects->{SCHEMAS}->{$schemaname}->{TABLES}->{$tablename}->{INDEXES}
                     ->{$idxname}->{DISABLE} = 1;
-	 }
-
+        }
         # Added table columns… this seems to appear in SQL Server when some columns have ANSI padding, and some not.
         # PG follows ANSI, that is not an option. The end of the regexp is pasted from the create table
-        elsif ($line =~
-            /^ALTER TABLE \[(.*)\]\.\[(.*)\] ADD \[(.*)\] (?:\[(.*)\]\.)?\[(.*)\](\(.+?\))?( IDENTITY\(-?\d+,\s*-?\d+\))? (NOT NULL|NULL)(?: CONSTRAINT \[.*\] )?(?: DEFAULT \(.*\))?$/
-            )
+        elsif ($line =~/^ALTER TABLE \[(.*)\]\.\[(.*)\] ADD \[(.*)\] (?:\[(.*)\]\.)?\[(.*)\](\(.+?\))?( IDENTITY\(-?\d+,\s*-?\d+\))? (NOT NULL|NULL)(?: CONSTRAINT \[.*\] )?(?: DEFAULT \(.*\))?$/)
         {
             my $schemaname=relabel_schemas($1);
             my $tablename=$2;
@@ -2104,12 +2092,9 @@ sub parse_dump
 	       store_default_value($schemaname,$tablename,$colname,$default,$line);
             }
         }
-
         # Table constraints
         # Primary key. Multiline
-        elsif ($line =~
-            /^ALTER TABLE \[(.*)\]\.\[(.*)\]\s+(?:WITH (?:NO)?CHECK )?ADD\s*(?:CONSTRAINT \[(.*)\])? PRIMARY KEY (?:CLUSTERED|NONCLUSTERED)?/
-            )
+        elsif ($line =~/^ALTER TABLE \[(.*)\]\.\[(.*)\]\s+(?:WITH (?:NO)?CHECK )?ADD\s*(?:CONSTRAINT \[(.*)\])? PRIMARY KEY (?:CLUSTERED|NONCLUSTERED)?/)
         {
             my $schemaname=relabel_schemas($1);
             my $tablename=$2;
@@ -2143,9 +2128,7 @@ sub parse_dump
                 }
             }
         }
-        elsif ($line =~
-            /^ALTER TABLE \[(.*)\]\.\[(.*)\] ADD\s*(?:CONSTRAINT \[(.*)\])? UNIQUE (?:CLUSTERED|NONCLUSTERED)?/
-            )
+        elsif ($line =~/^ALTER TABLE \[(.*)\]\.\[(.*)\] ADD\s*(?:CONSTRAINT \[(.*)\])? UNIQUE (?:CLUSTERED|NONCLUSTERED)?/)
         {
             my $schemaname=relabel_schemas($1);
             my $tablename=$2;
@@ -2172,44 +2155,30 @@ sub parse_dump
             }
 
         }
-
         # Default values. numeric, then text. These are 100% sure, they will parse in PG
-	# Sometimes there is a second pair of parenthesis. I don't even want to know why...
-	# Bit just need a little bit of work to be converted to 'true'/'false'
-        elsif ($line =~
-            /^ALTER TABLE \[(.*)\]\.\[(.*)\] ADD\s*(?:CONSTRAINT \[.*\])?\s*DEFAULT \((\(?(?:-)?\d+(?:\.\d+)?\))?\) FOR \[(.*)\]/
-            )
+        # Sometimes there is a second pair of parenthesis. I don't even want to know why...
+        # Bit just need a little bit of work to be converted to 'true'/'false'
+        elsif ($line =~/^ALTER TABLE \[(.*)\]\.\[(.*)\] ADD\s*(?:CONSTRAINT \[.*\])?\s*DEFAULT \((\(?(?:-)?\d+(?:\.\d+)?\))?\) FOR \[(.*)\]/)
         {
 	   store_default_value(relabel_schemas($1),$2,$4,$3,$line); # schema,table,col,value
         }
-        elsif ($line =~
-            /^ALTER TABLE \[(.*)\]\.\[(.*)\] ADD\s*(?:CONSTRAINT \[.*\])?\s*DEFAULT \(('.*')\) FOR \[(.*)\]/
-            )
+        elsif ($line =~/^ALTER TABLE \[(.*)\]\.\[(.*)\] ADD\s*(?:CONSTRAINT \[.*\])?\s*DEFAULT \(('.*')\) FOR \[(.*)\]/)
         {
 	   store_default_value(relabel_schemas($1),$2,$4,$3,$line); # schema,table,col,value
         }
-
         # Yes, we also get default NULL (what for ? :) ), and sometimes with a different case
-        elsif ($line =~
-            /^ALTER TABLE \[(.*)\]\.\[(.*)\] ADD\s*(?:CONSTRAINT \[.*\])?\s*DEFAULT \(((?i)NULL)\) FOR \[(.*)\]/
-            )
+        elsif ($line =~/^ALTER TABLE \[(.*)\]\.\[(.*)\] ADD\s*(?:CONSTRAINT \[.*\])?\s*DEFAULT \(((?i)NULL)\) FOR \[(.*)\]/)
         {
 	   store_default_value(relabel_schemas($1),$2,$4,$3,$line); # schema,table,col,value
         }
-
         # And there are also constraints with functions and other strange code in them. Put them as unsure
-        elsif ($line =~
-            /^ALTER TABLE \[(.*)\]\.\[(.*)\] ADD\s*(?:CONSTRAINT \[.*\])?\s*DEFAULT \(\(?(.*)\)?\) FOR \[(.*)\]/
-            )
+        elsif ($line =~/^ALTER TABLE \[(.*)\]\.\[(.*)\] ADD\s*(?:CONSTRAINT \[.*\])?\s*DEFAULT \(\(?(.*)\)?\) FOR \[(.*)\]/)
         {
 	   store_default_value(relabel_schemas($1),$2,$4,$3,$line); # schema,table,col,value
         }
-
         # FK constraint. It's multi line, we have to look for references, and what to do on update, delete, etc (I have only seen delete cascade for now)
         # Constraint name is optionnal
-        elsif ($line =~
-            /^ALTER TABLE \[(.*)\]\.\[(.*)\]\s+WITH (?:NO)?CHECK(?: NOT FOR REPLICATION)?\s+ADD(?:\s+CONSTRAINT \[(.*)\])? FOREIGN KEY\((.*?)\)/
-            )
+        elsif ($line =~/^ALTER TABLE \[(.*)\]\.\[(.*)\]\s+WITH (?:NO)?CHECK(?: NOT FOR REPLICATION)?\s+ADD(?:\s+CONSTRAINT \[(.*)\])? FOREIGN KEY\((.*?)\)/)
         {
             # This is a FK definition. We have the foreign table definition in next line.
             my $constraint;
@@ -2271,11 +2240,8 @@ sub parse_dump
                 }
             }
         }
-
         # Check constraint. As it can be arbitrary code, we just get this code, and hope it will work on PG (it will be stored in a special script file)
-        elsif ($line =~
-            /ALTER TABLE \[(.*)\]\.\[(.*)\]\s+(?:WITH? (?:NO)?CHECK? )?ADD(?:\s+CONSTRAINT (.*))?\s+CHECK(?: NOT FOR REPLICATION)?\s+\((\((.*)\)|(.*))\)/
-            )
+        elsif ($line =~/ALTER TABLE \[(.*)\]\.\[(.*)\]\s+(?:WITH? (?:NO)?CHECK? )?ADD(?:\s+CONSTRAINT (.*))?\s+CHECK(?: NOT FOR REPLICATION)?\s+\((\((.*)\)|(.*))\)/)
         {
             # Check constraint. We'll do what we can, syntax may be different.
             my $constraint;
@@ -2293,7 +2259,6 @@ sub parse_dump
             push @{$objects->{SCHEMAS}->{$schema}->{'TABLES'}->{$table}->{CONSTRAINTS}},
                 ($constraint);
         }
-
         # These are comments or extended attributes on objets. They can be multiline, so aggregate everything
         # Until a line that ends with a quote (but not two of them). We remove pair of quotes to make it simpler
         # If fact in can be a lot of things. So we have to ignore things like MS_DiagramPaneCount
@@ -2411,20 +2376,16 @@ sub parse_dump
                     "Don't know what to do with this extendedproperty: $sqlproperty";
             }
         }
-
-	# Save variable for future use
+        # Save variable for future use
         elsif ($line =~ /^:setvar\s+(\S+)\s+"(.*)"/)
-	{
+        {
 	   my $varname = $1;
 	   my $varvalue = $2;
 	   $objects->{VARIABLES}->{$varname} = $varvalue;
 	   next;
         }
-
         # Ignore USE, GO, and things that have no meaning for postgresql
-        elsif ($line =~
-            /^USE\s|^GO\s*$|\/\*\*\*\*|^SET ANSI_NULLS (ON|OFF)|^SET QUOTED_IDENTIFIER|^SET ANSI_PADDING|CHECK CONSTRAINT|^BEGIN|^END/
-            )
+        elsif ($line =~/^USE\s|^GO\s*$|\/\*\*\*\*|^SET ANSI_NULLS (ON|OFF)|^SET QUOTED_IDENTIFIER|^SET ANSI_PADDING|CHECK CONSTRAINT|^BEGIN|^END/)
         {
             next;
         }
@@ -2432,19 +2393,16 @@ sub parse_dump
         {
             next;
         }
-
         # Don't know what it is. If you know, and it is worth converting, tell me :)
         elsif ($line =~ /^EXEC .*bindrule/)
         {
             next;
         }
-
         # Ignore users and roles. Security models will probably be very different between the two databases
         elsif ($line =~ /^CREATE (ROLE|USER)/)
         {
             next;
         }
-
         # Ignore grant statements
         elsif ($line =~ /^GRANT ([^ ]+) ON (.+) TO \[[^ ]+\]/)
         {
@@ -2454,23 +2412,19 @@ sub parse_dump
         {
             next;
         }
-
         elsif ($line =~ /^ALTER (ROLE|USER)/)
         {
             next;
         }
-
         # Ignore xml schema collections since they are not supported in pg
         elsif ($line =~ /^CREATE XML SCHEMA COLLECTION/)
         {
             next;
         }
-
         elsif ($line =~ /^ALTER XML SCHEMA COLLECTION/)
         {
             next;
         }
-
         # Ignore existence tests… how could the object already exist anyway ? For now, only seen for views
         # Also ignore version tests
         elsif ($line =~ /^IF EXISTS|^IF \(\@\@microsoftversion/i)
@@ -2486,51 +2440,47 @@ sub parse_dump
 	   # Just ignore the line
 	   next;
         }
-
         # Ignore CREATE DATABASE: we hope that we are given a single database as
-	# an option. It is multiline.
+        # an option. It is multiline.
         # Ignore everything until next GO
         # Ignore ALTER DATABASE for the same reason. The given parameters have no
-	# meaning in PG anyway
-	# Except for SET ARITHABORT OFF, for which we print a warning because it
-	# probably means the database contents are weird (10/0 = null)
-	elsif ($line =~
-		  /^ALTER DATABASE.* SET ARITHABORT OFF/)
-	{
-	   print STDERR "WARNING: the source database is set as ARITHABORT OFF.\n";
-	   print STDERR "         It means that for SQL Server, 10/0 = NULL.\n";
-	   print STDERR "         You'll probably have problems porting that to PostgreSQL.\n";
-	   while ($line !~ /^GO$/)
-	   {
-	      $line =read_and_clean($file);
-	   }
-	   # We read everything in the CREATE DATABASE. Back to work !
-	   next;
-	}
-	# Sometimes, when there is a ALTER DATABASE SET ARITHABORT OFF, there are SET ARITHABORT ON. Just ignore them
-	elsif ($line =~ /^SET ARITHABORT ON/)
-	{
-	   next;
-	}
-	# Sometimes we meet this: SET CONCAT_NULL_YIELDS_NULL ON. That's the normal behaviour for a SQL database. Just ignore
-	elsif ($line =~ /^SET CONCAT_NULL_YIELDS_NULL ON/)
-	{
-	   next;
-	}
-	# Same more or less
-	elsif ($line =~ /^SET ANSI_WARNINGS ON/)
-	{
-	   next;
-	}
-	# What the hell does this do in a dump ???
-	elsif ($line =~ /^SET NUMERIC_ROUNDABORT OFF/)
-	{
-	   next;
-	}
-
+        # meaning in PG anyway
+        # Except for SET ARITHABORT OFF, for which we print a warning because it
+        # probably means the database contents are weird (10/0 = null)
+        elsif ($line =~/^ALTER DATABASE.* SET ARITHABORT OFF/)
+        {
+            print STDERR "WARNING: the source database is set as ARITHABORT OFF.\n";
+            print STDERR "         It means that for SQL Server, 10/0 = NULL.\n";
+            print STDERR "         You'll probably have problems porting that to PostgreSQL.\n";
+            while ($line !~ /^GO$/)
+            {
+                $line =read_and_clean($file);
+            }
+            # We read everything in the CREATE DATABASE. Back to work !
+            next;
+        }
+        # Sometimes, when there is a ALTER DATABASE SET ARITHABORT OFF, there are SET ARITHABORT ON. Just ignore them
+        elsif ($line =~ /^SET ARITHABORT ON/)
+        {
+            next;
+        }
+        # Sometimes we meet this: SET CONCAT_NULL_YIELDS_NULL ON. That's the normal behaviour for a SQL database. Just ignore
+        elsif ($line =~ /^SET CONCAT_NULL_YIELDS_NULL ON/)
+        {
+            next;
+        }
+        # Same more or less
+        elsif ($line =~ /^SET ANSI_WARNINGS ON/)
+        {
+            next;
+        }
+        # What the hell does this do in a dump ???
+        elsif ($line =~ /^SET NUMERIC_ROUNDABORT OFF/)
+        {
+            next;
+        }
         # Same for tests about full text search.
-        elsif ($line =~
-               /^(CREATE|ALTER) DATABASE|^IF \(1 = FULLTEXTSERVICEPROPERTY/)
+        elsif ($line =~/^(CREATE|ALTER) DATABASE|^IF \(1 = FULLTEXTSERVICEPROPERTY/)
         {
             while ($line !~ /^GO$/)
             {
@@ -2540,7 +2490,6 @@ sub parse_dump
             # We read everything in the CREATE DATABASE. Back to work !
             next;
         }
-
         # Ignore CREATE and ALTER statements for full text search objects, such as CATALOG, INDEX or STOPLIST.
         elsif ($line =~ /^(CREATE|ALTER) FULLTEXT/)
         {
@@ -2551,7 +2500,6 @@ sub parse_dump
 
           next;
         }
-
         # Ignore EXEC dbo.sp_executesql, for now only seen for a create view. Views sql command aren't executed directly, don't know why
         elsif ($line =~ /^EXEC dbo.sp_executesql/)
         {
@@ -2562,13 +2510,11 @@ sub parse_dump
         {
             next;
         }
-
         # Still on views: there are empty lines, and C-style comments
         elsif ($line =~ /^\s*$/)
         {
             next;
         }
-        
         # skip LOCK_ESCALATION
         elsif ($line =~ /^ALTER TABLE.*SET.*LOCK_ESCALATION/)
         {
