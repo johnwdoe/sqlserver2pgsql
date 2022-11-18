@@ -599,6 +599,7 @@ sub convert_transact_function
    $code =~ s/CONVERT\s*\(\s*NVARCHAR\s*(.*?)\s*\(\s*(.*?)\s*\s*\)\,\s*(.*?)\s*\)/CAST($3 AS varchar($2))/gi;
    $code =~ s/CONVERT\s*\(\s*(.*?)\s*\(\s*(.*?)\s*\s*\)\,\s*(.*?)\s*\)/CAST($3 AS $1($2))/gi;
    $code =~ s/CONVERT\s*\(\s*(.*?)\s*\,\s*(.*?)\s*\)/CAST($2 AS $1)/gi;
+   $code =~ s/newid\s*\(/uuid_generate_v4(/gi;
    return $code;
 }
 
@@ -610,11 +611,11 @@ sub convert_transactsql_code
    my ($code)=@_;
    #print STDERR "convert: $code\n";
 
-   if ($code =~ /^\((.+?)\)\s+(AND|OR)\s+\((.+?)\)$/) {
+   if ($code =~ /^\((.+?)\)\s+(AND|OR)\s+\((.+?)\)$/i) {
       my ($lhs,$op,$rhs)=($1,$2,$3);
       $code = "(".convert_transactsql_code("$lhs").") $op (".convert_transactsql_code("$rhs").")";
    }
-   elsif ($code =~ /^(.+?)\s+(AND|OR)\s+(.+?)$/) {
+   elsif ($code =~ /^(.+?)\s+(AND|OR)\s+(.+?)$/i) {
       my ($lhs,$op,$rhs)=($1,$2,$3);
       $code = "(".convert_transactsql_code("$lhs")." $op ".convert_transactsql_code("$rhs").")";
    }
@@ -2595,6 +2596,9 @@ sub generate_schema
         print BEFORE "CREATE EXTENSION IF NOT EXISTS postgis_topology;\n";
     }
 
+    print UNSURE 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+';
+    
     # Ok, we have parsed everything, and definitions are in $objects
     # We will put in the BEFORE file only table and columns definitions.
     # The rest will go in the AFTER script (check constraints, put default values, etc...)
