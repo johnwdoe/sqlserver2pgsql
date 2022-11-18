@@ -26,12 +26,14 @@ use strict;
 # If you have to hack and want to understand its structure, just uncomment the call to Dumper() in the code
 # There is just too many things in it, and it evolves all the time
 my $objects;
+my @itf_array;
 
 # These are global variables, from configuration file or command line arguments
 our ($sd, $sh, $si, $sp, $su, $sw, $pd, $ph, $pp, $pu, $pw);    # Connection args
 our $conf_file;
 our $filename;          # Filename passed as arg
 our $includedatafilename; #IDT Filename passed as arg
+our $includetablesfilename; #parse only tables from this file
 our $case_insensitive;  # Passed as arg: was SQL Server installation case insensitive ? PostgreSQL can't ignore accents anyway
                         # If yes, we will generate citext with CHECK constraints, that's the best we can do
 our $norelabel_dbo;     # Passed as arg: should we convert DBO to public ?
@@ -932,9 +934,9 @@ sub generate_kettle
     
 #    if ($includedatafilename)
 #    {
-        open my $handle, '<', $includedatafilename;
-        chomp(my @idf_array = <$handle>);
-        close $handle;
+    open my $handle, '<', $includedatafilename;
+    chomp(my @idf_array = <$handle>);
+    close $handle;
 #    }
 
     # For each table in each schema in $objects, we generate a kettle file in the directory
@@ -949,7 +951,7 @@ sub generate_kettle
         {
             # check table and skip if needed :-)
             
-            unless (grep(/^$table$/i, @idf_array) and $includedatafilename) {
+            unless (grep(/^$table\s*$/i, @idf_array) and $includedatafilename) {
                 print STDOUT "Skip creating kettle-jobs for $table\n";
                 next;
             }
@@ -1205,7 +1207,7 @@ sub generate_kettle
         foreach my $table (sort { lc($a) cmp lc($b) }
                            keys %{$refschema->{TABLES}})
         {
-            unless (grep(/^$table$/i, @idf_array) and $includedatafilename) {
+            unless (grep(/^$table\s*$/i, @idf_array) and $includedatafilename) {
                 print STDOUT "Skip creating kettle-jobs for $table\n";
                 next;
             }
@@ -1507,6 +1509,7 @@ sub add_column_to_table
     }
 }
 
+
 # Reads the dump passed as -f
 # Generates the $object structure
 # That's THE MAIN FUNCTION
@@ -1531,6 +1534,11 @@ sub parse_dump
     # or at least, perl thinks it has :)
     open $file, "<:encoding(" . $decoder->name . ")", $filename
         or die "Cannot open $filename";
+        
+    #prepare array with tablenames
+    open my $handle, '<', $includetablesfilename;
+    chomp(@itf_array = <$handle>);
+    close $handle;
 
     # Tagged because sql statements are often multi-line, so there are inner loops in some conditions
     MAIN: while (my $line = read_and_clean($file))
@@ -1541,6 +1549,16 @@ sub parse_dump
             my $schemaname   = relabel_schemas($1);
             my $orig_schema = $1;
             my $tablename    = $2;
+            unless (grep(/^$tablename\s*$/i, @itf_array) and $includetablesfilename)
+            {
+                print STDERR "INFO: Table $tablename ignored\n";
+
+                # We have to find next GO to know we are out of the procedure
+                while (my $mline = read_and_clean($file))
+                {
+                    next MAIN if ($mline =~ /^GO$/);
+                }
+            }
             $objects->{SCHEMAS}->{$schemaname}->{TABLES}->{$tablename}->{haslobs} = 0;
             $objects->{SCHEMAS}->{$schemaname}->{TABLES}->{$tablename}->{origschema} = $orig_schema;
             # We are in a create table. Read everything until its end...
@@ -2581,6 +2599,17 @@ sub generate_schema
     # We will put in the BEFORE file only table and columns definitions.
     # The rest will go in the AFTER script (check constraints, put default values, etc...)
 
+    
+    foreach my $sch (sort keys %{$objects->{SCHEMAS}})
+    {
+      foreach my $tbl (sort keys %{$objects->{SCHEMAS}->{$sch}->{TABLES}})
+      {
+         if (not grep(/^$tbl\s*$/i, @itf_array) and $includetablesfilename){
+            delete($objects->{SCHEMAS}->{$sch}->{TABLES}->{$tbl});
+         }
+      }
+    }
+    
     # The schemas. don't create empty schema, sql server creates a schema per user, even if it ends empty
     foreach my $schema (sort keys %{$objects->{SCHEMAS}})
     {
@@ -3244,6 +3273,7 @@ my $options = GetOptions(
 	 "pw=s"   => \$pw,
 	 "f=s"    => \$filename,
 	 "idt=s"  => \$includedatafilename,
+	 "itf=s"  => \$includetablesfilename,
 	 "i"      => \$case_insensitive,
 	 "nr"     => \$norelabel_dbo,
 	 "num"    => \$convert_numeric_to_int,
